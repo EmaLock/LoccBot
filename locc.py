@@ -1,6 +1,7 @@
 # https://github.com/Rapptz/discord.py/blob/async/examples/reply.py
 import random
 import sqlite3
+import sys
 
 import discord
 import key
@@ -28,16 +29,16 @@ async def lockme(context):
         locked_id = context.message.author.id
         # check if locked_id is already locked
         locked_id_result = database_query('SELECT locked_id FROM lock WHERE locked_id = ?', [locked_id])
-        print(locked_id_result)
         # check if locked_id is already in a session with keyholder_id
         keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [ locked_id, keyholder_id])
-        print(keyholder_id_result)
         if locked_id_result == []:
             if keyholder_id_result == []:
                 database_query('INSERT INTO lock (locked_id, keyholder_id) VALUES (?,?)', [locked_id, keyholder_id])
                 await bot.say('Congratulations ' + context.message.author.mention + '! ' + context.message.mentions[0].mention + ' is now your keyholder!')
         else:
             await bot.say(context.message.author.mention + ': you are already locked!')
+    else:
+        await bot.say(context.message.author.mention + ': you have to mention someone to be your keyholder!')
 
 @bot.event
 async def on_ready():
@@ -51,7 +52,8 @@ async def on_ready():
         with connection:
             cursor = connection.cursor()
             # for testing purposes only
-            cursor.execute('DROP TABLE lock')
+            if 'test' in sys.argv:
+                cursor.execute('DROP TABLE lock')
             cursor.execute('CREATE TABLE IF NOT EXISTS lock (keyholder_id INTEGER, locked_id INTEGER, since_date INTEGER)')
     except sqlite3.Error as e:
         print('An error occured:', e.args[0])
