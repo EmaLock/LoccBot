@@ -34,11 +34,26 @@ async def lockme(context):
         if locked_id_result == []:
             if keyholder_id_result == []:
                 database_query('INSERT INTO lock (locked_id, keyholder_id) VALUES (?,?)', [locked_id, keyholder_id])
-                await bot.say('Congratulations ' + context.message.author.mention + '! ' + context.message.mentions[0].mention + ' is now your keyholder!')
+                await bot.say('Congratulations ' + context.message.author.mention + '! You are now held by ' + context.message.mentions[0].mention + '!')
         else:
             await bot.say(context.message.author.mention + ': you are already locked!')
     else:
         await bot.say(context.message.author.mention + ': you have to mention someone to be your keyholder!')
+
+@bot.command(pass_context=True)
+async def unlockme(context):
+    server = context.message.server
+    locked_id = context.message.author.id
+    locked_mention = context.message.author.mention
+    locked_id_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ?', [locked_id])
+    if locked_id_result == []:
+        await bot.say(locked_mention + ': you are not locked (yet!)')
+    else:
+        keyholder_id = locked_id_result[0][1]
+        keyholder_user = server.get_member(str(keyholder_id))
+        keyholder_mention = keyholder_user.mention
+        database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
+        await bot.say(locked_mention + ' is no longer held by ' + keyholder_mention)
 
 @bot.event
 async def on_ready():
