@@ -56,6 +56,20 @@ async def unlockme(context):
         await bot.say(locked_mention + ' is no longer held by ' + keyholder_mention)
 
 @bot.command(pass_context=True)
+async def unlock(context):
+    if context.message.mentions.__len__() > 0:
+        locked_id = context.message.mentions[0].id
+        locked_mention = context.message.mentions[0].mention
+        keyholder_id = context.message.author.id
+        keyholder_mention = context.message.author.mention
+        lock_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+        if lock_result == []:
+            await bot.say(keyholder_mention + ': you are not holding ' + locked_mention)
+        else:
+            database_query('DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+            await bot.say(keyholder_mention + ' is no longer holding ' + locked_mention)
+
+@bot.command(pass_context=True)
 async def keyholder(context):
     server = context.message.server
     locked_id = None
@@ -76,6 +90,31 @@ async def keyholder(context):
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = keyholder_user.mention
         await bot.say(locked_mention + ' is held by ' + keyholder_mention)
+
+@bot.command(pass_context=True)
+async def subs(context):
+    server = context.message.server
+    keyholder_id = None
+    keyholder_mention = None
+    # if someone is mentioned, get the current subs of the mentioned person
+    if context.message.mentions.__len__() > 0:
+        keyholder_id = context.message.mentions[0].id
+        keyholder_mention = context.message.mentions[0].mention
+    # else, get the current subs of the author
+    else:
+        keyholder_id = context.message.author.id
+        keyholder_mention = context.message.author.mention
+    locked_id_result = database_query('SELECT locked_id FROM lock WHERE keyholder_id = ?', [keyholder_id])
+    if locked_id_result == []:
+        await bot.say(keyholder_mention + ' is helding no one (yet!)')
+    else:
+        locked_mentions = ''
+        for locked in locked_id_result:
+            locked_id = locked[0]
+            locked_user = server.get_member(str(locked_id))
+            locked_mention = locked_user.mention
+            locked_mentions += ' ' + locked_mention
+        await bot.say(keyholder_mention + ' is holding:' + locked_mentions)
 
 @bot.command()
 async def h():
