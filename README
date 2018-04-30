@@ -1,0 +1,11 @@
+Create a virtualenv:
+
+python3 -m virtualenv folder/
+
+Install discord.py and sqlite3
+
+folder/bin/pip3.5 install -U discord sqlite3
+
+Get a token for your bot and put it in key.py
+
+Run the bot from the virtualenv!
