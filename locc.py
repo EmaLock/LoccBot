@@ -55,12 +55,43 @@ async def unlockme(context):
         database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
         await bot.say(locked_mention + ' is no longer held by ' + keyholder_mention)
 
+@bot.command(pass_context=True)
+async def keyholder(context):
+    server = context.message.server
+    locked_id = None
+    locked_mention = None
+    # if someone is mentioned, get the current keyholder of the mentioned person
+    if context.message.mentions.__len__() > 0:
+        locked_id = context.message.mentions[0].id
+        locked_mention = context.message.mentions[0].mention
+    # else, get the current keyholder of the author
+    else:
+        locked_id = context.message.author.id
+        locked_mention = context.message.author.mention
+    keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ?', [locked_id])
+    if keyholder_id_result == []:
+        await bot.say(locked_mention + ' is not held (yet!)')
+    else:
+        keyholder_id = keyholder_id_result[0][0]
+        keyholder_user = server.get_member(str(keyholder_id))
+        keyholder_mention = keyholder_user.mention
+        await bot.say(locked_mention + ' is held by ' + keyholder_mention)
+
+@bot.command()
+async def h():
+    await bot.say('''Available commands:
+    - `!lockme [mention]`: name [mention] as your keyholder
+    - `!unlockme`: removes you from being held
+    - `!keyholder`: shows your current keyholder
+    - `!keyholder[meniton]`: shows [mention]'s current keyholder''')
+
 @bot.event
 async def on_ready():
     print('Logged in as')
     print(bot.user.name)
     print(bot.user.id)
     print('------')
+    await bot.change_presence(game=discord.Game(name='!h'))
     # Try to connect to database
     try:
         connection = sqlite3.connect('locc.db')
