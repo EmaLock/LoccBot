@@ -22,6 +22,14 @@ def database_query(query : str, parameters):
     except sqlite3.Error as e:
         print("An error occured:", e.args[0])
 
+def get_mention(user : discord.User):
+    # returns the mention of a user
+    if user == None:
+        mention = 'a user who is not here'
+    else:
+        mention = user.mention
+    return mention
+
 @bot.command(pass_context=True)
 async def lockme(context):
     locked_mention = context.message.author.mention
@@ -61,12 +69,7 @@ async def unlockme(context):
     else:
         keyholder_id = locked_id_result[0][1]
         keyholder_user = server.get_member(str(keyholder_id))
-        # if the keyholder is not connected to the server
-        if keyholder_user == None:
-            keyholder_mention = 'a user who is not here'
-        # if the keyholder is connected to the server
-        else:
-            keyholder_mention = keyholder_user.mention
+        keyholder_mention = get_mention(keyholder_user)
         database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
         await bot.say('{locked} is no longer held by {keyholder}'.format(locked=locked_mention, keyholder=keyholder_mention))
 
@@ -109,12 +112,7 @@ async def keyholder(context):
     else:
         keyholder_id = keyholder_id_result[0][0]
         keyholder_user = server.get_member(str(keyholder_id))
-        # if the keyholder is not in the server
-        if keyholder_user == None:
-            keyholder_mention = 'a user who is not here'
-        # if the keyholder is in the server
-        else:
-            keyholder_mention = keyholder_user.mention
+        keyholder_mention = get_mention(keyholder_user)
         since_date = keyholder_id_result[0][1]
         await bot.say('{locked} has been held by {keyholder} for {days} day(s)'.format(locked=locked_mention, keyholder=keyholder_mention, days=str(since_date)))
 
@@ -142,12 +140,7 @@ async def subs(context):
         for locked in locked_id_result:
             locked_id = locked[0]
             locked_user = server.get_member(str(locked_id))
-            print(locked_user)
-            # if the locked is not on the server
-            if locked_user == None:
-                locked_mention = 'someone who is not on the server'
-            else:
-                locked_mention = locked_user.mention
+            locked_mention = get_mention(locked_user)
             since_date = locked[1]
             locked_mentions += ' {locked} ({days} day(s))'.format(locked=locked_mention, days=str(since_date))
         await bot.say('{keyholder} is holding:{locked_mentions}'.format(keyholder=keyholder_mention, locked_mentions=locked_mentions))
