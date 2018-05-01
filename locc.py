@@ -25,6 +25,7 @@ def database_query(query : str, parameters):
 
 @bot.command(pass_context=True)
 async def lockme(context):
+    locked_mention = context.message.author.mention
     # needs a mention! Names [mention] as the author's keyholder
     if context.message.mentions.__len__() > 0:
         keyholder_id = context.message.mentions[0].id
@@ -35,12 +36,13 @@ async def lockme(context):
         keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [ locked_id, keyholder_id])
         if locked_id_result == []:
             if keyholder_id_result == []:
+                keyholder_mention = context.message.mentions[0].mention
                 database_query('INSERT INTO lock (locked_id, keyholder_id, since_date) VALUES (?,?, julianday(\'now\'))', [locked_id, keyholder_id])
-                await bot.say('Congratulations ' + context.message.author.mention + '! You are now held by ' + context.message.mentions[0].mention + '!')
+                await bot.say('Congratulations {locked}! You are now held by {keyholder}!'.format(locked=locked_mention, keyholder=keyholder_mention))
         else:
-            await bot.say(context.message.author.mention + ': you are already locked!')
+            await bot.say('{locked}: you are already locked!'.format(locked=locked_mention))
     else:
-        await bot.say(context.message.author.mention + ': you have to mention someone to be your keyholder!')
+        await bot.say('{locked}: you have to mention someone to be your keyholder!'.format(locked=locked_mention))
 
 @bot.command(pass_context=True)
 async def unlockme(context):
@@ -50,13 +52,13 @@ async def unlockme(context):
     locked_mention = context.message.author.mention
     locked_id_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ?', [locked_id])
     if locked_id_result == []:
-        await bot.say(locked_mention + ': you are not locked (yet!)')
+        await bot.say('{locked}: you are not locked (yet!)'.format(locked=locked_mention))
     else:
         keyholder_id = locked_id_result[0][1]
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = keyholder_user.mention
         database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
-        await bot.say(locked_mention + ' is no longer held by ' + keyholder_mention)
+        await bot.say('{locked} is no longer held by {keyholder}'.format(locked=locked_mention, keyholder=keyholder_mention))
 
 @bot.command(pass_context=True)
 async def unlock(context):
@@ -69,11 +71,11 @@ async def unlock(context):
         lock_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
         # if the keyholder is NOT holding [mention]
         if lock_result == []:
-            await bot.say(keyholder_mention + ': you are not holding ' + locked_mention)
+            await bot.say('{keyholder}: you are not holding {locked}'.format(keyholder=keyholder_mention, locked=locked_mention))
         # if the keyholder is holding [mention]
         else:
             database_query('DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
-            await bot.say(keyholder_mention + ' is no longer holding ' + locked_mention)
+            await bot.say('{keyholder} is no longer holding {locked}'.format(keyholder=keyholder_mention, locked=locked_mention))
 
 @bot.command(pass_context=True)
 async def keyholder(context):
@@ -92,14 +94,14 @@ async def keyholder(context):
     keyholder_id_result = database_query('SELECT keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ?', [locked_id])
     # if no results are returned, the author or [mention] is not help
     if keyholder_id_result == []:
-        await bot.say(locked_mention + ' is not held (yet!)')
+        await bot.say('{locked} is not held (yet!)'.format(locked=locked_mention))
     # if there is a result, get the keyholder and mention them!
     else:
         keyholder_id = keyholder_id_result[0][0]
         keyholder_user = server.get_member(str(keyholder_id))
         since_date = keyholder_id_result[0][1]
         keyholder_mention = keyholder_user.mention
-        await bot.say(locked_mention + ' has been held by ' + keyholder_mention + ' for ' + str(since_date) + ' day(s)')
+        await bot.say('{locked} has been held by {keyholder} for {days} day(s)'.format(locked=locked_mention, keyholder=keyholder_mention, days=str(since_date)))
 
 @bot.command(pass_context=True)
 async def subs(context):
@@ -118,7 +120,7 @@ async def subs(context):
     locked_id_result = database_query('SELECT locked_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE keyholder_id = ?', [keyholder_id])
     # if there is no results, the author or [mention] is not holding someone
     if locked_id_result == []:
-        await bot.say(keyholder_mention + ' is holding no one (yet!)')
+        await bot.say('{keyholder} is holding no one (yet!)'.format(keyholder=keyholder_mention))
     # if there are results, the author or [mention] is holding someone, mention them!
     else:
         locked_mentions = ''
@@ -127,8 +129,8 @@ async def subs(context):
             locked_user = server.get_member(str(locked_id))
             locked_mention = locked_user.mention
             since_date = locked[1]
-            locked_mentions += ' ' + locked_mention + ' (' + str(since_date) + ' day(s))'
-        await bot.say(keyholder_mention + ' is holding:' + locked_mentions)
+            locked_mentions += ' {locked} ({days} day(s))'.format(locked=locked_mention, days=str(since_date))
+        await bot.say('{keyholder} is holding:{locked_mentions}'.format(keyholder=keyholder_mention, locked_mentions=locked_mentions))
 
 @bot.command()
 async def h():
