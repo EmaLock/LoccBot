@@ -1,5 +1,3 @@
-# https://github.com/Rapptz/discord.py/blob/async/examples/reply.py
-import random
 import sqlite3
 import sys
 
@@ -11,6 +9,7 @@ TOKEN = key.TOKEN
 
 description = '''Manages chastity'''
 bot = commands.Bot(command_prefix='!', description=description)
+bot.remove_command('help')
 
 def database_query(query : str, parameters):
     # sends a query to the database. It should be parametered with interrogation marks in place of the arguments, and the arguments should be in a list
@@ -21,26 +20,30 @@ def database_query(query : str, parameters):
             cursor.execute(query, parameters)
             return cursor.fetchall()
     except sqlite3.Error as e:
-        print('An error occured:', e.args[0])
+        print("An error occured:", e.args[0])
 
 @bot.command(pass_context=True)
 async def lockme(context):
     locked_mention = context.message.author.mention
+    locked_id = context.message.author.id
     # needs a mention! Names [mention] as the author's keyholder
     if context.message.mentions.__len__() > 0:
         keyholder_id = context.message.mentions[0].id
-        locked_id = context.message.author.id
         # check if locked_id is already locked
         locked_id_result = database_query('SELECT locked_id FROM lock WHERE locked_id = ?', [locked_id])
         # check if locked_id is already in a session with keyholder_id
-        keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [ locked_id, keyholder_id])
+        keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+        # if the locked is not in a session
         if locked_id_result == []:
+            # if the wished keyholder is not in a session with the locked
             if keyholder_id_result == []:
                 keyholder_mention = context.message.mentions[0].mention
                 database_query('INSERT INTO lock (locked_id, keyholder_id, since_date) VALUES (?,?, julianday(\'now\'))', [locked_id, keyholder_id])
                 await bot.say('Congratulations {locked}! You are now held by {keyholder}!'.format(locked=locked_mention, keyholder=keyholder_mention))
+        # if the locked is already locked
         else:
             await bot.say('{locked}: you are already locked!'.format(locked=locked_mention))
+    # if nobody has been mentioned
     else:
         await bot.say('{locked}: you have to mention someone to be your keyholder!'.format(locked=locked_mention))
 
@@ -51,12 +54,19 @@ async def unlockme(context):
     locked_id = context.message.author.id
     locked_mention = context.message.author.mention
     locked_id_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ?', [locked_id])
+    # if the locked is not in a session
     if locked_id_result == []:
         await bot.say('{locked}: you are not locked (yet!)'.format(locked=locked_mention))
+    # if the locked is in a session
     else:
         keyholder_id = locked_id_result[0][1]
         keyholder_user = server.get_member(str(keyholder_id))
-        keyholder_mention = keyholder_user.mention
+        # if the keyholder is not connected to the server
+        if keyholder_user == None:
+            keyholder_mention = 'a user who is not here'
+        # if the keyholder is connected to the server
+        else:
+            keyholder_mention = keyholder_user.mention
         database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
         await bot.say('{locked} is no longer held by {keyholder}'.format(locked=locked_mention, keyholder=keyholder_mention))
 
@@ -99,8 +109,13 @@ async def keyholder(context):
     else:
         keyholder_id = keyholder_id_result[0][0]
         keyholder_user = server.get_member(str(keyholder_id))
+        # if the keyholder is not in the server
+        if keyholder_user == None:
+            keyholder_mention = 'a user who is not here'
+        # if the keyholder is in the server
+        else:
+            keyholder_mention = keyholder_user.mention
         since_date = keyholder_id_result[0][1]
-        keyholder_mention = keyholder_user.mention
         await bot.say('{locked} has been held by {keyholder} for {days} day(s)'.format(locked=locked_mention, keyholder=keyholder_mention, days=str(since_date)))
 
 @bot.command(pass_context=True)
@@ -127,13 +142,18 @@ async def subs(context):
         for locked in locked_id_result:
             locked_id = locked[0]
             locked_user = server.get_member(str(locked_id))
-            locked_mention = locked_user.mention
+            print(locked_user)
+            # if the locked is not on the server
+            if locked_user == None:
+                locked_mention = 'someone who is not on the server'
+            else:
+                locked_mention = locked_user.mention
             since_date = locked[1]
             locked_mentions += ' {locked} ({days} day(s))'.format(locked=locked_mention, days=str(since_date))
         await bot.say('{keyholder} is holding:{locked_mentions}'.format(keyholder=keyholder_mention, locked_mentions=locked_mentions))
 
 @bot.command()
-async def h():
+async def help():
     # list the commands
     await bot.say('''Available commands:
     - `!lockme [mention]`: name [mention] as your keyholder
@@ -142,7 +162,7 @@ async def h():
     - `!keyholder`: shows your current keyholder
     - `!keyholder[meniton]`: shows [mention]'s current keyholder
     - `!subs`: lists your subs
-    - `!subs [mention]: lists [mention]'s subs''')
+    - `!subs [mention]`: lists [mention]'s subs''')
 
 @bot.event
 async def on_ready():
@@ -150,7 +170,7 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('------')
-    await bot.change_presence(game=discord.Game(name='!h'))
+    await bot.change_presence(game=discord.Game(name='!help'))
     # Try to connect to database
     try:
         connection = sqlite3.connect('locc.db')

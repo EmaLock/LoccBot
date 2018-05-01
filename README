@@ -9,3 +9,10 @@ folder/bin/pip3.5 install -U discord sqlite3
 Get a token for your bot and put it in key.py
 
 Run the bot from the virtualenv!
+
+TODO:
+-setdate command
+-remove sqlite3
+-watch roles to determine locking time
+-time remaining feature
+-set a keyholder as NIL
