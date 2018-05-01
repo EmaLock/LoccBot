@@ -35,7 +35,7 @@ async def lockme(context):
         keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [ locked_id, keyholder_id])
         if locked_id_result == []:
             if keyholder_id_result == []:
-                database_query('INSERT INTO lock (locked_id, keyholder_id) VALUES (?,?)', [locked_id, keyholder_id])
+                database_query('INSERT INTO lock (locked_id, keyholder_id, since_date) VALUES (?,?, julianday(\'now\'))', [locked_id, keyholder_id])
                 await bot.say('Congratulations ' + context.message.author.mention + '! You are now held by ' + context.message.mentions[0].mention + '!')
         else:
             await bot.say(context.message.author.mention + ': you are already locked!')
@@ -89,7 +89,7 @@ async def keyholder(context):
     else:
         locked_id = context.message.author.id
         locked_mention = context.message.author.mention
-    keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ?', [locked_id])
+    keyholder_id_result = database_query('SELECT keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ?', [locked_id])
     # if no results are returned, the author or [mention] is not help
     if keyholder_id_result == []:
         await bot.say(locked_mention + ' is not held (yet!)')
@@ -97,8 +97,9 @@ async def keyholder(context):
     else:
         keyholder_id = keyholder_id_result[0][0]
         keyholder_user = server.get_member(str(keyholder_id))
+        since_date = keyholder_id_result[0][1]
         keyholder_mention = keyholder_user.mention
-        await bot.say(locked_mention + ' is held by ' + keyholder_mention)
+        await bot.say(locked_mention + ' has been held by ' + keyholder_mention + ' for ' + str(since_date) + ' day(s)')
 
 @bot.command(pass_context=True)
 async def subs(context):
@@ -114,7 +115,7 @@ async def subs(context):
     else:
         keyholder_id = context.message.author.id
         keyholder_mention = context.message.author.mention
-    locked_id_result = database_query('SELECT locked_id FROM lock WHERE keyholder_id = ?', [keyholder_id])
+    locked_id_result = database_query('SELECT locked_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE keyholder_id = ?', [keyholder_id])
     # if there is no results, the author or [mention] is not holding someone
     if locked_id_result == []:
         await bot.say(keyholder_mention + ' is holding no one (yet!)')
@@ -125,7 +126,8 @@ async def subs(context):
             locked_id = locked[0]
             locked_user = server.get_member(str(locked_id))
             locked_mention = locked_user.mention
-            locked_mentions += ' ' + locked_mention
+            since_date = locked[1]
+            locked_mentions += ' ' + locked_mention + ' (' + str(since_date) + ' day(s))'
         await bot.say(keyholder_mention + ' is holding:' + locked_mentions)
 
 @bot.command()
