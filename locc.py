@@ -52,6 +52,16 @@ def get_author_mention(message : discord.Message):
     # returns a string to meniton the message's author
     return message.author.mention
 
+def get_row_where_locked_id(locked_id : int):
+    # returns the rows matching a locked_id
+    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ?', [locked_id])
+
+def get_row_where_keyholder_id(keyholder_id : int):
+    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE keyholder_id = ?', [keyholder_id])
+
+def get_row_where_locked_id_and_keyholder_id(locked_id : int, keyholder_id : int):
+    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+
 @bot.command(pass_context=True)
 async def lockme(context):
     message = context.message

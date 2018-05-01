@@ -3,7 +3,7 @@ __pycache__/*
 bin/*
 lib/*
 lib64
-locc.db
+locc.db*
 pyvenv.cfg
 share/*
 key.py
