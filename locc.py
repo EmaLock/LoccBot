@@ -30,13 +30,36 @@ def get_mention(user : discord.User):
         mention = user.mention
     return mention
 
+def has_mentions(message : discord.Message):
+    # returns True if the message has a mention
+    if len(message.mentions) == 0:
+        return False
+    return True
+
+def get_first_mention_id(message : discord.Message):
+    # returns the userID of the first mention in a message
+    return message.mentions[0].id
+
+def get_first_mention_mention(message : discord.Message):
+    # returns a string to mention the first user mentioned in a message
+    return message.mentions[0].mention
+
+def get_author_id(message : discord.Message):
+    # returns the userID of the message's author
+    return message.author.id
+
+def get_author_mention(message : discord.Message):
+    # returns a string to meniton the message's author
+    return message.author.mention
+
 @bot.command(pass_context=True)
 async def lockme(context):
-    locked_mention = context.message.author.mention
-    locked_id = context.message.author.id
+    message = context.message
+    locked_mention = get_author_mention(message)
+    locked_id = get_author_id(message)
     # needs a mention! Names [mention] as the author's keyholder
-    if context.message.mentions.__len__() > 0:
-        keyholder_id = context.message.mentions[0].id
+    if has_mentions(message):
+        keyholder_id = get_first_mention_id(message)
         # check if locked_id is already locked
         locked_id_result = database_query('SELECT locked_id FROM lock WHERE locked_id = ?', [locked_id])
         # check if locked_id is already in a session with keyholder_id
@@ -45,7 +68,7 @@ async def lockme(context):
         if locked_id_result == []:
             # if the wished keyholder is not in a session with the locked
             if keyholder_id_result == []:
-                keyholder_mention = context.message.mentions[0].mention
+                keyholder_mention = get_first_mention_mention(message)
                 database_query('INSERT INTO lock (locked_id, keyholder_id, since_date) VALUES (?,?, julianday(\'now\'))', [locked_id, keyholder_id])
                 await bot.say('Congratulations {locked}! You are now held by {keyholder}!'.format(locked=locked_mention, keyholder=keyholder_mention))
         # if the locked is already locked
@@ -59,8 +82,9 @@ async def lockme(context):
 async def unlockme(context):
     #unlocks the author from their keyholder
     server = context.message.server
-    locked_id = context.message.author.id
-    locked_mention = context.message.author.mention
+    message = context.message
+    locked_id = get_author_id(message)
+    locked_mention = get_author_mention(message)
     locked_id_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ?', [locked_id])
     # if the locked is not in a session
     if locked_id_result == []:
@@ -76,11 +100,12 @@ async def unlockme(context):
 @bot.command(pass_context=True)
 async def unlock(context):
     #needs a mention! Lets a keyholder free [mention]
-    if context.message.mentions.__len__() > 0:
-        locked_id = context.message.mentions[0].id
-        locked_mention = context.message.mentions[0].mention
-        keyholder_id = context.message.author.id
-        keyholder_mention = context.message.author.mention
+    message = context.message
+    keyholder_id = get_author_id(message)
+    keyholder_mention = get_author_mention(message)
+    if has_mentions(message):
+        locked_id = get_first_mention_id(message)
+        locked_mention = get_first_mention_mention(message)
         lock_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
         # if the keyholder is NOT holding [mention]
         if lock_result == []:
@@ -89,21 +114,22 @@ async def unlock(context):
         else:
             database_query('DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
             await bot.say('{keyholder} is no longer holding {locked}'.format(keyholder=keyholder_mention, locked=locked_mention))
+    else:
+        await bot.say('{keyholder}: you have to mention someone to unlock!'.format(keyholder=keyholder_mention))
 
 @bot.command(pass_context=True)
 async def keyholder(context):
     #shows who is currently holding the author or the [mention]
     server = context.message.server
-    locked_id = None
-    locked_mention = None
+    message = context.message
     # if someone is mentioned, get the current keyholder of the mentioned person
-    if context.message.mentions.__len__() > 0:
-        locked_id = context.message.mentions[0].id
-        locked_mention = context.message.mentions[0].mention
+    if has_mentions(message):
+        locked_id = get_first_mention_id(message)
+        locked_mention = get_first_mention_mention(message)
     # else, get the current keyholder of the author
     else:
-        locked_id = context.message.author.id
-        locked_mention = context.message.author.mention
+        locked_id = get_author_id(message)
+        locked_mention = get_author_mention(message)
     keyholder_id_result = database_query('SELECT keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ?', [locked_id])
     # if no results are returned, the author or [mention] is not help
     if keyholder_id_result == []:
@@ -120,16 +146,15 @@ async def keyholder(context):
 async def subs(context):
     #lists the subs of the author or [mention]
     server = context.message.server
-    keyholder_id = None
-    keyholder_mention = None
+    message = context.message
     # if someone is mentioned, get the current subs of the mentioned person
-    if context.message.mentions.__len__() > 0:
-        keyholder_id = context.message.mentions[0].id
-        keyholder_mention = context.message.mentions[0].mention
+    if has_mentions(message):
+        keyholder_id = get_first_mention_id(message)
+        keyholder_mention = get_first_mention_mention(message)
     # else, get the current subs of the author
     else:
-        keyholder_id = context.message.author.id
-        keyholder_mention = context.message.author.mention
+        keyholder_id = get_author_id(message)
+        keyholder_mention = get_author_mention(message)
     locked_id_result = database_query('SELECT locked_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE keyholder_id = ?', [keyholder_id])
     # if there is no results, the author or [mention] is not holding someone
     if locked_id_result == []:
@@ -162,7 +187,6 @@ async def on_ready():
     print('Logged in as')
     print(bot.user.name)
     print(bot.user.id)
-    print('------')
     await bot.change_presence(game=discord.Game(name='!help'))
     # Try to connect to database
     try:
