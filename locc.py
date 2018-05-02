@@ -50,18 +50,18 @@ def get_author_id(message : discord.Message):
     return message.author.id
 
 def get_author_mention(message : discord.Message):
-    # returns a string to meniton the message's author
+    # returns a string to mention the message's author
     return message.author.mention
 
 def get_row_where_locked_id(locked_id : int):
     # returns the rows matching a locked_id
-    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ?', [locked_id])
+    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date FROM lock WHERE locked_id = ?', [locked_id])
 
 def get_row_where_keyholder_id(keyholder_id : int):
-    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE keyholder_id = ?', [keyholder_id])
+    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date FROM lock WHERE keyholder_id = ?', [keyholder_id])
 
 def get_row_where_locked_id_and_keyholder_id(locked_id : int, keyholder_id : int):
-    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+    return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
 
 @bot.command(pass_context=True)
 async def lockme(context):
@@ -72,16 +72,20 @@ async def lockme(context):
     if has_mentions(message):
         keyholder_id = get_first_mention_id(message)
         # check if locked_id is already locked
-        locked_id_result = database_query('SELECT locked_id FROM lock WHERE locked_id = ?', [locked_id])
+        locked_id_result = get_row_where_locked_id(locked_id)
         # check if locked_id is already in a session with keyholder_id
-        keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+        #keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+        keyholder_id_result = get_row_where_keyholder_id(keyholder_id)
+        keyholder_mention = get_first_mention_mention(message)
         # if the locked is not in a session
         if locked_id_result == []:
             # if the wished keyholder is not in a session with the locked
             if keyholder_id_result == []:
-                keyholder_mention = get_first_mention_mention(message)
                 database_query('INSERT INTO lock (locked_id, keyholder_id, since_date) VALUES (?,?, julianday(\'now\'))', [locked_id, keyholder_id])
                 await bot.say('Congratulations {locked}! You are now held by {keyholder}!'.format(locked=locked_mention, keyholder=keyholder_mention))
+            else:
+                await bot.say('{locked}: you are already locked by {keyholder}!'.format(locked=locked_mention, keyholder=keyholder_mention))
+
         # if the locked is already locked
         else:
             await bot.say('{locked}: you are already locked!'.format(locked=locked_mention))
@@ -96,7 +100,7 @@ async def unlockme(context):
     message = context.message
     locked_id = get_author_id(message)
     locked_mention = get_author_mention(message)
-    locked_id_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ?', [locked_id])
+    locked_id_result = get_row_where_locked_id(locked_id)
     # if the locked is not in a session
     if locked_id_result == []:
         await bot.say('{locked}: you are not locked (yet!)'.format(locked=locked_mention))
@@ -117,7 +121,7 @@ async def unlock(context):
     if has_mentions(message):
         locked_id = get_first_mention_id(message)
         locked_mention = get_first_mention_mention(message)
-        lock_result = database_query('SELECT locked_id, keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+        lock_result = get_row_where_locked_id_and_keyholder_id(locked_id, keyholder_id)
         # if the keyholder is NOT holding [mention]
         if lock_result == []:
             await bot.say('{keyholder}: you are not holding {locked}'.format(keyholder=keyholder_mention, locked=locked_mention))
@@ -141,7 +145,7 @@ async def keyholder(context):
     else:
         locked_id = get_author_id(message)
         locked_mention = get_author_mention(message)
-    keyholder_id_result = database_query('SELECT keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) as since_date FROM lock WHERE locked_id = ?', [locked_id])
+    keyholder_id_result = get_row_where_locked_id(locked_id)
     # if no results are returned, the author or [mention] is not help
     if keyholder_id_result == []:
         await bot.say('{locked} is not held (yet!)'.format(locked=locked_mention))
@@ -166,7 +170,7 @@ async def subs(context):
     else:
         keyholder_id = get_author_id(message)
         keyholder_mention = get_author_mention(message)
-    locked_id_result = database_query('SELECT locked_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date FROM lock WHERE keyholder_id = ?', [keyholder_id])
+    locked_id_result = get_row_where_keyholder_id(keyholder_id)
     # if there is no results, the author or [mention] is not holding someone
     if locked_id_result == []:
         await bot.say('{keyholder} is holding no one (yet!)'.format(keyholder=keyholder_mention))
@@ -189,7 +193,7 @@ async def help():
     - `!unlockme`: removes you from being held
     - `!unlock [mention]`: frees [mention] from your holding
     - `!keyholder`: shows your current keyholder
-    - `!keyholder[meniton]`: shows [mention]'s current keyholder
+    - `!keyholder[mention]`: shows [mention]'s current keyholder
     - `!subs`: lists your subs
     - `!subs [mention]`: lists [mention]'s subs''')
 
