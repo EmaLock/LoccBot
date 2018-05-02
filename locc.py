@@ -16,6 +16,7 @@ def database_query(query : str, parameters):
     try:
         connection = sqlite3.connect('locc.db')
         with connection:
+            connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             cursor.execute(query, parameters)
             return cursor.fetchall()
@@ -101,7 +102,7 @@ async def unlockme(context):
         await bot.say('{locked}: you are not locked (yet!)'.format(locked=locked_mention))
     # if the locked is in a session
     else:
-        keyholder_id = locked_id_result[0][1]
+        keyholder_id = locked_id_result[0]['locked_id']
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = get_mention(keyholder_user)
         database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
@@ -140,16 +141,16 @@ async def keyholder(context):
     else:
         locked_id = get_author_id(message)
         locked_mention = get_author_mention(message)
-    keyholder_id_result = database_query('SELECT keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE locked_id = ?', [locked_id])
+    keyholder_id_result = database_query('SELECT keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) as since_date FROM lock WHERE locked_id = ?', [locked_id])
     # if no results are returned, the author or [mention] is not help
     if keyholder_id_result == []:
         await bot.say('{locked} is not held (yet!)'.format(locked=locked_mention))
     # if there is a result, get the keyholder and mention them!
     else:
-        keyholder_id = keyholder_id_result[0][0]
+        keyholder_id = keyholder_id_result[0]['keyholder_id']
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = get_mention(keyholder_user)
-        since_date = keyholder_id_result[0][1]
+        since_date = keyholder_id_result[0]['since_date']
         await bot.say('{locked} has been held by {keyholder} for {days} day(s)'.format(locked=locked_mention, keyholder=keyholder_mention, days=str(since_date)))
 
 @bot.command(pass_context=True)
@@ -165,7 +166,7 @@ async def subs(context):
     else:
         keyholder_id = get_author_id(message)
         keyholder_mention = get_author_mention(message)
-    locked_id_result = database_query('SELECT locked_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) FROM lock WHERE keyholder_id = ?', [keyholder_id])
+    locked_id_result = database_query('SELECT locked_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date FROM lock WHERE keyholder_id = ?', [keyholder_id])
     # if there is no results, the author or [mention] is not holding someone
     if locked_id_result == []:
         await bot.say('{keyholder} is holding no one (yet!)'.format(keyholder=keyholder_mention))
@@ -173,10 +174,10 @@ async def subs(context):
     else:
         locked_mentions = ''
         for locked in locked_id_result:
-            locked_id = locked[0]
+            locked_id = locked['locked_id']
             locked_user = server.get_member(str(locked_id))
             locked_mention = get_mention(locked_user)
-            since_date = locked[1]
+            since_date = locked['since_date']
             locked_mentions += ' {locked} ({days} day(s))'.format(locked=locked_mention, days=str(since_date))
         await bot.say('{keyholder} is holding:{locked_mentions}'.format(keyholder=keyholder_mention, locked_mentions=locked_mentions))
 
@@ -197,7 +198,10 @@ async def on_ready():
     print('Logged in as')
     print(bot.user.name)
     print(bot.user.id)
-    await bot.change_presence(game=discord.Game(name='!help'))
+    # for testing purposes only
+    if bot.user.name == 'TestBot':
+        bot.command_prefix = '?'
+    await bot.change_presence(game=discord.Game(name=bot.command_prefix + 'help'))
     # Try to connect to database
     try:
         connection = sqlite3.connect('locc.db')
