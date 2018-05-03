@@ -63,6 +63,16 @@ def get_row_where_keyholder_id(keyholder_id : int):
 def get_row_where_locked_id_and_keyholder_id(locked_id : int, keyholder_id : int):
     return database_query('SELECT locked_id, keyholder_id, CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
 
+def insert_new_session(locked_id : int, keyholder_id : int):
+    database_query('INSERT INTO lock (locked_id, keyholder_id, since_date) VALUES (?,?, julianday(\'now\'))', [locked_id, keyholder_id])
+
+def delete_session_with_locked_id(locked_id : int):
+    database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
+
+def delete_session_with_locked_id_and_keyholder_id(locked_id: int, keyholder_id: int):
+    database_query('DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+
+
 @bot.command(pass_context=True)
 async def lockme(context):
     message = context.message
@@ -74,14 +84,13 @@ async def lockme(context):
         # check if locked_id is already locked
         locked_id_result = get_row_where_locked_id(locked_id)
         # check if locked_id is already in a session with keyholder_id
-        #keyholder_id_result = database_query('SELECT keyholder_id FROM lock WHERE locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
         keyholder_id_result = get_row_where_keyholder_id(keyholder_id)
         keyholder_mention = get_first_mention_mention(message)
         # if the locked is not in a session
         if locked_id_result == []:
             # if the wished keyholder is not in a session with the locked
             if keyholder_id_result == []:
-                database_query('INSERT INTO lock (locked_id, keyholder_id, since_date) VALUES (?,?, julianday(\'now\'))', [locked_id, keyholder_id])
+                insert_new_session(locked_id, keyholder_id)
                 await bot.say('Congratulations {locked}! You are now held by {keyholder}!'.format(locked=locked_mention, keyholder=keyholder_mention))
             else:
                 await bot.say('{locked}: you are already locked by {keyholder}!'.format(locked=locked_mention, keyholder=keyholder_mention))
@@ -109,7 +118,7 @@ async def unlockme(context):
         keyholder_id = locked_id_result[0]['locked_id']
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = get_mention(keyholder_user)
-        database_query('DELETE FROM lock WHERE locked_id = ?', [locked_id])
+        delete_session_with_locked_id(locked_id)
         await bot.say('{locked} is no longer held by {keyholder}'.format(locked=locked_mention, keyholder=keyholder_mention))
 
 @bot.command(pass_context=True)
@@ -127,7 +136,7 @@ async def unlock(context):
             await bot.say('{keyholder}: you are not holding {locked}'.format(keyholder=keyholder_mention, locked=locked_mention))
         # if the keyholder is holding [mention]
         else:
-            database_query('DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?', [locked_id, keyholder_id])
+            delete_session_with_locked_id_and_keyholder_id(locked_id, keyholder_id)
             await bot.say('{keyholder} is no longer holding {locked}'.format(keyholder=keyholder_mention, locked=locked_mention))
     else:
         await bot.say('{keyholder}: you have to mention someone to unlock!'.format(keyholder=keyholder_mention))
@@ -188,14 +197,16 @@ async def subs(context):
 @bot.command()
 async def help():
     # list the commands
-    await bot.say('''Available commands:
+    await bot.say(
+'''Available commands:
     - `!lockme [mention]`: name [mention] as your keyholder
     - `!unlockme`: removes you from being held
     - `!unlock [mention]`: frees [mention] from your holding
     - `!keyholder`: shows your current keyholder
     - `!keyholder[mention]`: shows [mention]'s current keyholder
     - `!subs`: lists your subs
-    - `!subs [mention]`: lists [mention]'s subs''')
+    - `!subs [mention]`: lists [mention]'s subs
+*source: https://github.com/EmaLock/LoccBot*''')
 
 @bot.event
 async def on_ready():
@@ -203,7 +214,7 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     # for testing purposes only
-    if bot.user.name == 'TestBot':
+    if 'test' in sys.argv:
         bot.command_prefix = '?'
     await bot.change_presence(game=discord.Game(name=bot.command_prefix + 'help'))
     # Try to connect to database
@@ -213,7 +224,7 @@ async def on_ready():
             cursor = connection.cursor()
             # for testing purposes only
             if 'test' in sys.argv:
-                cursor.execute('DROP TABLE lock')
+                cursor.execute('DROP TABLE IF EXISTS lock')
             cursor.execute('CREATE TABLE IF NOT EXISTS lock (keyholder_id INTEGER, locked_id INTEGER, since_date INTEGER)')
     except sqlite3.Error as e:
         print('An error occured:', e.args[0])
