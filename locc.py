@@ -56,19 +56,19 @@ def get_author_mention(message: discord.Message):
     '''returns a string to mention the message's author'''
     return message.author.mention
 
-def get_row_where_locked_id(locked_id: int):
+def get_row_locked_id(locked_id: int):
     '''returns the rows matching a locked_id'''
     return database_query('''SELECT locked_id, keyholder_id,
     CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date
     FROM lock WHERE locked_id = ?''', [locked_id])
 
-def get_row_where_keyholder_id(keyholder_id: int):
+def get_row_keyholder_id(keyholder_id: int):
     '''returns the rows matching a keyholder_id'''
     return database_query('''SELECT locked_id, keyholder_id,
     CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date
     FROM lock WHERE keyholder_id = ?''', [keyholder_id])
 
-def get_row_where_locked_id_and_keyholder_id(locked_id: int, keyholder_id: int):
+def get_row_locked_id_keyholder_id(locked_id: int, keyholder_id: int):
     '''returns the rows matching BOTh a locked_id and a keyholder_id'''
     query = '''SELECT locked_id, keyholder_id,
     CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date
@@ -81,13 +81,15 @@ def insert_new_session(locked_id: int, keyholder_id: int):
     VALUES (?,?, julianday(\'now\'))'''
     database_query(query, [locked_id, keyholder_id])
 
-def delete_session_with_locked_id(locked_id: int):
+def delete_session_locked_id(locked_id: int):
     '''removes a session from a locked_id'''
     query = 'DELETE FROM lock WHERE locked_id = ?'
     database_query(query, [locked_id])
 
-def delete_session_with_locked_id_and_keyholder_id(locked_id: int, keyholder_id: int):
+def delete_session_locked_id_keyholder_id(locked_id: int, keyholder_id: int):
     '''removes a session between a locked_id and keyholder_id'''
+    # pylint: disable=C0103
+    # disable the "doesn't conform to snake_case naming style"
     query = 'DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?'
     database_query(query, [locked_id, keyholder_id])
 
@@ -102,9 +104,9 @@ async def lockme(context):
     if has_mentions(message):
         keyholder_id = get_first_mention_id(message)
         # check if locked_id is already locked
-        locked_id_result = get_row_where_locked_id(locked_id)
+        locked_id_result = get_row_locked_id(locked_id)
         # check if locked_id is already in a session with keyholder_id
-        keyholder_id_result = get_row_where_keyholder_id(keyholder_id)
+        keyholder_id_result = get_row_keyholder_id(keyholder_id)
         keyholder_mention = get_first_mention_mention(message)
         # if the locked is not in a session
         if locked_id_result == []:
@@ -138,7 +140,7 @@ async def unlockme(context):
     message = context.message
     locked_id = get_author_id(message)
     locked_mention = get_author_mention(message)
-    locked_id_result = get_row_where_locked_id(locked_id)
+    locked_id_result = get_row_locked_id(locked_id)
     # if the locked is not in a session
     if locked_id_result == []:
         say = '{locked}: you are not locked (yet!)'
@@ -149,7 +151,7 @@ async def unlockme(context):
         keyholder_id = locked_id_result[0]['locked_id']
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = get_mention(keyholder_user)
-        delete_session_with_locked_id(locked_id)
+        delete_session_locked_id(locked_id)
         say = '{locked} is no longer held by {keyholder}'
         say = say.format(locked=locked_mention, keyholder=keyholder_mention)
         await BOT.say(say)
@@ -163,7 +165,7 @@ async def unlock(context):
     if has_mentions(message):
         locked_id = get_first_mention_id(message)
         locked_mention = get_first_mention_mention(message)
-        lock_result = get_row_where_locked_id_and_keyholder_id(locked_id, keyholder_id)
+        lock_result = get_row_locked_id_keyholder_id(locked_id, keyholder_id)
         # if the keyholder is NOT holding [mention]
         if lock_result == []:
             say = '{keyholder}: you are not holding {locked}'
@@ -171,7 +173,7 @@ async def unlock(context):
             await BOT.say(say)
         # if the keyholder is holding [mention]
         else:
-            delete_session_with_locked_id_and_keyholder_id(locked_id, keyholder_id)
+            delete_session_locked_id_keyholder_id(locked_id, keyholder_id)
             say = '{keyholder} is no longer holding {locked}'
             say = say.format(keyholder=keyholder_mention, locked=locked_mention)
             await BOT.say(say)
@@ -193,7 +195,7 @@ async def keyholder(context):
     else:
         locked_id = get_author_id(message)
         locked_mention = get_author_mention(message)
-    keyholder_id_result = get_row_where_locked_id(locked_id)
+    keyholder_id_result = get_row_locked_id(locked_id)
     # if no results are returned, the author or [mention] is not help
     if keyholder_id_result == []:
         say = '{locked} is not held (yet!)'
@@ -224,7 +226,7 @@ async def subs(context):
     else:
         keyholder_id = get_author_id(message)
         keyholder_mention = get_author_mention(message)
-    locked_id_result = get_row_where_keyholder_id(keyholder_id)
+    locked_id_result = get_row_keyholder_id(keyholder_id)
     # if there is no results, the author or [mention] is not holding someone
     if locked_id_result == []:
         say = '{keyholder} is holding no one (yet!)'
@@ -247,6 +249,8 @@ async def subs(context):
 @BOT.command()
 async def help():
     '''list the commands'''
+    # pylint: disable=W0622
+    # disable the "redefining built-in" pylint message
     await BOT.say(
         '''Available commands:
     - `!lockme [mention]`: name [mention] as your keyholder
