@@ -111,7 +111,7 @@ async def lockme(context):
         # check if locked_id is already locked
         locked_id_result = get_row_locked_id(locked_id)
         # check if locked_id is already in a session with keyholder_id
-        keyholder_id_result = get_row_keyholder_id(keyholder_id)
+        keyholder_id_result = get_row_locked_id_keyholder_id(locked_id, keyholder_id)
         keyholder_mention = get_first_mention_mention(message)
         # if the locked is not in a session
         if locked_id_result == []:
@@ -153,7 +153,7 @@ async def unlockme(context):
         await BOT.say(say)
     # if the locked is in a session
     else:
-        keyholder_id = locked_id_result[0]['locked_id']
+        keyholder_id = locked_id_result[0]['keyholder_id']
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = get_mention(keyholder_user)
         delete_session_locked_id(locked_id)
