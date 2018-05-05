@@ -286,6 +286,36 @@ async def setdate(context):
     except ValueError:
         await BOT.say('{keyholder_mention}: the date must be formatted as YYYY-MM-DD')
 
+@BOT.command(pass_context=True)
+async def setdays(context):
+    '''Sets the lock up date to a certain number of days'''
+    message = context.message
+    locked_id = get_first_mention_id(message)
+    locked_mention = get_first_mention_mention(message)
+    keyholder_id = get_author_id(message)
+    keyholder_mention = get_author_mention(message)
+    message_contents = context.message.content
+    list_of_words = message_contents.split()
+    argument = list_of_words[2]
+    # check if the keyholder is currently in session with the sub
+    session = get_row_locked_id_keyholder_id(locked_id, keyholder_id)
+    if not session:
+        say = '{keyholder_mention}: you are not holding {locked_mention}!'
+        say = say.format(keyholder_mention=keyholder_mention, locked_mention=locked_mention)
+        await BOT.say(say)
+        return
+    # check if the argument can generate a delta datetime
+    try:
+        delta = datetime.timedelta(days=int(argument), microseconds=1)
+        timestamp_now = datetime.datetime.utcnow()
+        new_timestamp = timestamp_now - delta
+        update_start_date(locked_id, keyholder_id, new_timestamp.timestamp())
+        say = '{keyholder_mention}: the session start date for {locked_mention} has been updated'
+        say = say.format(keyholder_mention=keyholder_mention, locked_mention=locked_mention)
+        await BOT.say(say)
+    except ValueError:
+        await BOT.say('{keyholder_mention}: the date must be formatted as YYYY-MM-DD')
+
 @BOT.command()
 async def help():
     '''list the commands'''
@@ -300,6 +330,8 @@ async def help():
     - `!keyholder[mention]`: shows [mention]'s current keyholder
     - `!subs`: lists your subs
     - `!subs [mention]`: lists [mention]'s subs
+    - `!setdate [mention] [YYYY-MM-DD]`: sets the locking date for [mention] to YYYY-MM-DD
+    - `!setdays [mention] [days]`: sets the day count of [mention] to [days] days
 *source: https://github.com/EmaLock/LoccBOT*''')
 
 @BOT.event
