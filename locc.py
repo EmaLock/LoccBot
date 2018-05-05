@@ -91,6 +91,11 @@ def delete_session_locked_id_keyholder_id(locked_id: int, keyholder_id: int):
     query = 'DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?'
     database_query(query, [locked_id, keyholder_id])
 
+def update_start_date(locked_id: int, keyholder_id: int, since_date: int):
+    '''updates the session start date'''
+    query = 'UPDATE lock SET since_date = ? WHERE locked_id = ? AND keyholder_id = ?'
+    database_query(query, [since_date, locked_id, keyholder_id])
+
 def days_from_now(timestamp):
     '''returns the number of days between now and date'''
     now = datetime.datetime.utcnow()
@@ -250,6 +255,36 @@ async def subs(context):
         say = '{keyholder} is holding:{locked_mentions}'
         say = say.format(keyholder=keyholder_mention, locked_mentions=locked_mentions)
         await BOT.say(say)
+
+@BOT.command(pass_context=True)
+async def setdate(context):
+    '''Sets the lock up date to an earlier one'''
+    message = context.message
+    locked_id = get_first_mention_id(message)
+    locked_mention = get_first_mention_mention(message)
+    keyholder_id = get_author_id(message)
+    keyholder_mention = get_author_mention(message)
+    message_contents = context.message.content
+    list_of_words = message_contents.split()
+    argument = list_of_words[2]
+    # check if the keyholder is currently in session with the sub
+    session = get_row_locked_id_keyholder_id(locked_id, keyholder_id)
+    if not session:
+        say = '{keyholder_mention}: you are not holding {locked_mention}!'
+        say = say.format(keyholder_mention=keyholder_mention, locked_mention=locked_mention)
+        await BOT.say(say)
+        return
+    # check if the argument can generate a datetime
+    try:
+        #https://docs.python.org/3.5/library/time.html#time.strftime
+        new_date = datetime.datetime.strptime(argument, '%Y-%m-%d')
+        timestamp = new_date.timestamp()
+        update_start_date(locked_id, keyholder_id, timestamp)
+        say = '{keyholder_mention}: the session start date for {locked_mention} has been updated'
+        say = say.format(keyholder_mention=keyholder_mention, locked_mention=locked_mention)
+        await BOT.say(say)
+    except ValueError:
+        await BOT.say('{keyholder_mention}: the date must be formatted as YYYY-MM-DD')
 
 @BOT.command()
 async def help():
