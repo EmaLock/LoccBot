@@ -1,4 +1,5 @@
 '''A discord bot to manage chastity'''
+import datetime
 import sqlite3
 import sys
 
@@ -58,27 +59,24 @@ def get_author_mention(message: discord.Message):
 
 def get_row_locked_id(locked_id: int):
     '''returns the rows matching a locked_id'''
-    return database_query('''SELECT locked_id, keyholder_id,
-    CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date
+    return database_query('''SELECT locked_id, keyholder_id, since_date
     FROM lock WHERE locked_id = ?''', [locked_id])
 
 def get_row_keyholder_id(keyholder_id: int):
     '''returns the rows matching a keyholder_id'''
-    return database_query('''SELECT locked_id, keyholder_id,
-    CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date
+    return database_query('''SELECT locked_id, keyholder_id, since_date
     FROM lock WHERE keyholder_id = ?''', [keyholder_id])
 
 def get_row_locked_id_keyholder_id(locked_id: int, keyholder_id: int):
     '''returns the rows matching BOTh a locked_id and a keyholder_id'''
-    query = '''SELECT locked_id, keyholder_id,
-    CAST(julianday(\'now\') - julianday(since_date) as INTEGER) AS since_date
+    query = '''SELECT locked_id, keyholder_id, since_date
     FROM lock WHERE locked_id = ? AND keyholder_id = ?'''
     return database_query(query, [locked_id, keyholder_id])
 
 def insert_new_session(locked_id: int, keyholder_id: int):
     '''insert a new session between a locked_id and a keyholder_id'''
     query = '''INSERT INTO lock (locked_id, keyholder_id, since_date)
-    VALUES (?,?, julianday(\'now\'))'''
+    VALUES (?,?, strftime('%s','now', 'utc'))'''
     database_query(query, [locked_id, keyholder_id])
 
 def delete_session_locked_id(locked_id: int):
@@ -93,6 +91,13 @@ def delete_session_locked_id_keyholder_id(locked_id: int, keyholder_id: int):
     query = 'DELETE FROM lock WHERE  locked_id = ? AND keyholder_id = ?'
     database_query(query, [locked_id, keyholder_id])
 
+def days_from_now(timestamp):
+    '''returns the number of days between now and date'''
+    now = datetime.datetime.utcnow()
+    then = datetime.datetime.fromtimestamp(timestamp)
+    delta = now - then
+    days = delta.days
+    return days
 
 @BOT.command(pass_context=True)
 async def lockme(context):
@@ -239,7 +244,7 @@ async def subs(context):
             locked_id = locked['locked_id']
             locked_user = server.get_member(str(locked_id))
             locked_mention = get_mention(locked_user)
-            since_date = locked['since_date']
+            since_date = days_from_now(locked['since_date'])
             locked_mentions += ' {locked} ({days} day(s))'.format(locked=locked_mention,
                                                                   days=str(since_date))
         say = '{keyholder} is holding:{locked_mentions}'
