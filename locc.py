@@ -216,7 +216,7 @@ async def keyholder(context):
         keyholder_id = keyholder_id_result[0]['keyholder_id']
         keyholder_user = server.get_member(str(keyholder_id))
         keyholder_mention = get_mention(keyholder_user)
-        since_date = keyholder_id_result[0]['since_date']
+        since_date = days_from_now(keyholder_id_result[0]['since_date'])
         say = '{locked} has been held by {keyholder} for {days} day(s)'
         say = say.format(locked=locked_mention,
                          keyholder=keyholder_mention,
