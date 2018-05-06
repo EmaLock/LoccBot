@@ -330,8 +330,8 @@ async def help():
     - `!keyholder[mention]`: shows [mention]'s current keyholder
     - `!subs`: lists your subs
     - `!subs [mention]`: lists [mention]'s subs
-    - `!setdate [mention] [YYYY-MM-DD]`: sets the locking date for [mention] to YYYY-MM-DD
-    - `!setdays [mention] [days]`: sets the day count of [mention] to [days] days
+    - `!setdate [mention] YYYY-MM-DD`: sets the locking date for [mention] to YYYY-MM-DD
+    - `!setdays [mention] days`: sets the day count of [mention] to [days] days
 *source: https://github.com/EmaLock/LoccBOT*''')
 
 @BOT.event
