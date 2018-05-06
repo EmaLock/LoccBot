@@ -343,7 +343,7 @@ async def on_ready():
     # for testing purposes only
     if 'test' in sys.argv:
         BOT.command_prefix = '?'
-    await BOT.change_presence(game=discord.Game(name=BOT.command_prefix + 'help'))
+    await BOT.change_presence(game=discord.Game(name=BOT.command_prefix + 'help for help'))
     # Try to connect to database
     try:
         connection = sqlite3.connect('locc.db')
